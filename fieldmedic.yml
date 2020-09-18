@@ -1,0 +1,6 @@
+interval: 15s
+services:
+  - name: foo
+    path: /rest/v1/health
+    hosts:
+      - localhost:3001
