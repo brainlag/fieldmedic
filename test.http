@@ -1,0 +1,35 @@
+POST http://localhost:9093/api/v1/alerts HTTP/1.1
+content-type: application/json
+
+[{ 
+	"status": "firing",
+	"labels": {
+		"alertname": "fooX",
+		"service": "foo1",
+		"severity":"warning",
+		"instance": "foo.example.net"
+	},
+	"annotations": {
+		"summary": "High latency is high!"
+	},
+	"generatorURL": "http://prometheus.int.example.net/<generating_expression>"
+}]
+
+### resolve
+
+POST http://localhost:9093/api/v1/alerts HTTP/1.1
+content-type: application/json
+
+[{ 
+	"status": "resolved",
+	"labels": {
+		"alertname": "fooX",
+		"service": "foo1",
+		"severity":"warning",
+		"instance": "foo.example.net"
+	},
+	"annotations": {
+		"summary": "High latency is high!"
+	},
+	"generatorURL": "http://prometheus.int.example.net/<generating_expression>"
+}]
