@@ -81,7 +81,7 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	println(cfg.Interval)
+	log.Printf("Check Interval: %s", cfg.Interval)
 	go checkHealth(cfg)
 
 	sigs := make(chan os.Signal, 1)
@@ -112,7 +112,9 @@ var netClient = &http.Client{
 var checks = make(chan *Diagnosis)
 
 func queryHealthCheckEndpoint(service *ServiceEndpoint) {
-	resp, err := netClient.Get(buildURL(service))
+	endpointURL := buildURL(service)
+	log.Printf("Querying Endpoing: %s", endpointURL)
+	resp, err := netClient.Get(endpointURL)
 	if err != nil {
 		log.Println(err)
 		checks <- &Diagnosis{
@@ -145,7 +147,9 @@ func buildURL(service *ServiceEndpoint) string {
 func checkHealth(cfg Config) {
 	for diagnose := range checks {
 		var alerts []Alert
-		if diagnose.Health.Status == "DOWN" {
+		if diagnose.Health.Status == "DOWN" && len(diagnose.Health.Checks) == 0 {
+			summary := fmt.Sprintf("Service %s on %s is down!", diagnose.Endpoint.Name, diagnose.Endpoint.Host)
+			log.Println(summary)
 			alerts = append(alerts, Alert{
 				Status: "firing",
 				Labels: map[string]string{
@@ -153,18 +157,19 @@ func checkHealth(cfg Config) {
 					"service":   diagnose.Endpoint.Name,
 					"severity":  "error",
 					"instance":  diagnose.Endpoint.Host},
-				Annotations:  map[string]string{"summary": "Service " + diagnose.Endpoint.Name + " on " + diagnose.Endpoint.Host + " is down!"},
+				Annotations:  map[string]string{"summary": summary},
 				GeneratorURL: "http://implemented.not",
 			})
 		}
 		for _, hc := range diagnose.Health.Checks {
-			if hc.Status == "DOWN" {
+			if hc.Status == "DOWN" && !contains(diagnose.Endpoint.Ignore, hc.Name) {
+				log.Printf("HealthCheck %s faild on %s for %s: %s", hc.Name, diagnose.Endpoint.Host, diagnose.Endpoint.Name, hc.Data.Description)
 				alerts = append(alerts, Alert{
 					Status: "firing",
 					Labels: map[string]string{
 						"alertname": hc.Name,
 						"service":   diagnose.Endpoint.Name,
-						"severity":  "error",
+						"severity":  getSeverity(diagnose.Endpoint.Warning, hc.Name),
 						"instance":  diagnose.Endpoint.Host},
 					Annotations:  map[string]string{"summary": hc.Data.Description},
 					GeneratorURL: "http://implemented.not",
@@ -184,6 +189,22 @@ func checkHealth(cfg Config) {
 		defer resp.Body.Close()
 		// TODO check body?
 	}
+}
+
+func getSeverity(s []string, e string) string {
+	if contains(s, e) {
+		return "warning"
+	}
+	return "error"
+}
+
+func contains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
 }
 
 func mainloop(cfg Config) {

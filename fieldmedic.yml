@@ -1,6 +1,10 @@
 interval: 15s
+alertmanager_url: http://localhost:9093/api/v1/alerts
 services:
   - name: foo
     path: /rest/v1/health
+    ignore: [foo]
+    warning: [bar]
+    port: 3001
     hosts:
-      - localhost:3001
+      - localhost
